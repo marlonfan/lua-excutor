@@ -1,0 +1,40 @@
+{
+  "name": "script-manager",
+  "version": "1.0.0",
+  "description": "A frontend project for script management and task scheduling",
+  "main": "index.js",
+  "scripts": {
+    "start": "concurrently \"npm run start:frontend\" \"npm run start:backend\"",
+    "start:frontend": "react-app-rewired start",
+    "start:backend": "go run main.go",
+    "build": "react-app-rewired build",
+    "test": "react-app-rewired test",
+    "eject": "react-scripts eject"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.6.0",
+    "axios": "^0.21.1",
+    "concurrently": "^6.2.1",
+    "http-proxy-middleware": "^2.0.1",
+    "monaco-editor-webpack-plugin": "^6.0.0",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "react-router-dom": "^5.2.0",
+    "react-scripts": "^5.0.1",
+    "react-app-rewired": "^2.1.8"
+  },
+  "author": "",
+  "license": "ISC",
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
