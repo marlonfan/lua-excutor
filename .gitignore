@@ -36,4 +36,5 @@ build/
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?scripts.db
+*.sw?
+scripts.db
