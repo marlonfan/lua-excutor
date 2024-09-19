@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	luaHttp "github.com/cjoudrey/gluahttp"
@@ -22,8 +23,9 @@ import (
 var staticFiles embed.FS
 
 var (
-	username = os.Getenv("HTTP_AUTH_USERNAME")
-	password = os.Getenv("HTTP_AUTH_PASSWORD")
+	username     = os.Getenv("HTTP_AUTH_USERNAME")
+	password     = os.Getenv("HTTP_AUTH_PASSWORD")
+	webhookToken = os.Getenv("HTTP_WEBHOOK_TOKEN")
 )
 
 func init() {
@@ -32,6 +34,9 @@ func init() {
 	}
 	if password == "" {
 		password = "admin"
+	}
+	if webhookToken == "" {
+		webhookToken = "token"
 	}
 }
 
@@ -82,6 +87,8 @@ func main() {
 	authorized.PUT("/api/update/:name", updateScript)
 	authorized.DELETE("/api/scripts/:name", deleteScript)
 
+	r.Any("/api/scripts/:name/:token/execute", executeScript)
+
 	go runScheduler()
 
 	r.Run(":8080")
@@ -128,6 +135,12 @@ func submitScript(c *gin.Context) {
 
 func executeScript(c *gin.Context) {
 	name := c.Param("name")
+	token := c.Param("token")
+
+	if strings.TrimSpace(token) != "" && token != webhookToken {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Invalid token"})
+		return
+	}
 
 	params := c.Request.URL.Query()
 
