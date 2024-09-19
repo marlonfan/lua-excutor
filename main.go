@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	luaHttp "github.com/cjoudrey/gluahttp"
@@ -18,6 +19,20 @@ import (
 
 //go:embed build
 var staticFiles embed.FS
+
+var (
+	username = os.Getenv("HTTP_AUTH_USERNAME")
+	password = os.Getenv("HTTP_AUTH_PASSWORD")
+)
+
+func init() {
+	if username == "" {
+		username = "admin"
+	}
+	if password == "" {
+		password = "admin"
+	}
+}
 
 type Script struct {
 	Name        string `json:"name" gorm:"primary_key"`
@@ -45,17 +60,25 @@ func main() {
 	createTable()
 
 	r := gin.Default()
-	r.POST("/api/submit", submitScript)
-	r.GET("/api/scripts/:name/execute", executeScript)
-	r.GET("/api/scripts", getScripts)
-	r.POST("/api/scripts/:name/schedule", scheduleScript)
-	r.PUT("/api/update/:name", updateScript)
 
-	// 提供静态文件服务
-	r.StaticFS("/static", http.FS(staticFiles))
-	r.NoRoute(func(c *gin.Context) {
-		c.FileFromFS("build/index.html", http.FS(staticFiles))
+	// 设置HTTP基本认证中间件
+	authorized := r.Group("/", gin.BasicAuth(gin.Accounts{
+		username: password,
+	}))
+
+	authorized.Any("/", func(c *gin.Context) {
+		c.FileFromFS("build/", http.FS(staticFiles))
 	})
+
+	authorized.Any("/static/*filepath", func(c *gin.Context) {
+		c.FileFromFS("build/static/"+c.Param("filepath"), http.FS(staticFiles))
+	})
+
+	authorized.POST("/api/scripts", submitScript)
+	authorized.GET("/api/scripts/:name/execute", executeScript)
+	authorized.GET("/api/scripts", getScripts)
+	authorized.POST("/api/scripts/:name/schedule", scheduleScript)
+	authorized.PUT("/api/update/:name", updateScript)
 
 	go runScheduler()
 
