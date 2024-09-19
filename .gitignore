@@ -37,4 +37,6 @@ build/
 *.njsproj
 *.sln
 *.sw?
+
+# Additional file to ignore
 scripts.db

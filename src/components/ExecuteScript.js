@@ -3,11 +3,17 @@ import axios from 'axios';
 
 function ExecuteScript() {
     const [scriptName, setScriptName] = useState('');
+    const [scriptParams, setScriptParams] = useState('');
     const [result, setResult] = useState('');
 
     const handleExecute = async () => {
         try {
-            const response = await axios.get(`/api/scripts/${scriptName}/execute`);
+            const response = await axios.post(`/api/scripts/${scriptName}/execute`, {
+                params: {
+                    scriptName: scriptName,
+                    scriptParams: JSON.parse(scriptParams),
+                },
+            });
             setResult(response.data.result);
         } catch (error) {
             console.error('Error executing script:', error);
@@ -25,6 +31,15 @@ function ExecuteScript() {
                         value={scriptName}
                         onChange={(e) => setScriptName(e.target.value)}
                         placeholder="Enter script name"
+                        className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                </div>
+                <div className="mb-4">
+                    <textarea
+                        type="text"
+                        value={scriptParams}
+                        onChange={(e) => setScriptParams(e.target.value)}
+                        placeholder="Enter script params"
                         className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>

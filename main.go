@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -75,10 +76,11 @@ func main() {
 	})
 
 	authorized.POST("/api/scripts", submitScript)
-	authorized.GET("/api/scripts/:name/execute", executeScript)
+	authorized.Any("/api/scripts/:name/execute", executeScript)
 	authorized.GET("/api/scripts", getScripts)
 	authorized.POST("/api/scripts/:name/schedule", scheduleScript)
 	authorized.PUT("/api/update/:name", updateScript)
+	authorized.DELETE("/api/scripts/:name", deleteScript)
 
 	go runScheduler()
 
@@ -127,14 +129,37 @@ func submitScript(c *gin.Context) {
 func executeScript(c *gin.Context) {
 	name := c.Param("name")
 
+	params := c.Request.URL.Query()
+
+	bodyParams := make(map[string]interface{})
+	c.ShouldBindJSON(&bodyParams)
+
+	mergedParams := make(map[string]interface{})
+
+	for key, values := range params {
+		if len(values) > 0 {
+			mergedParams[key] = values[0]
+		}
+	}
+
+	for key, value := range bodyParams {
+		mergedParams[key] = value
+	}
+
+	mergedParamsJSON, err := json.Marshal(mergedParams)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	var script Script
-	err := db.Where("name = ? OR alias = ?", name, name).First(&script).Error
+	err = db.Where("name = ? OR alias = ?", name, name).First(&script).Error
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Script not found"})
 		return
 	}
 
-	result, err := runLuaScript(script.Name, script.Code)
+	result, err := runLuaScript(script.Name, script.Code, string(mergedParamsJSON))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -209,15 +234,18 @@ func shouldRun(schedule string) bool {
 	return now.Truncate(time.Second).Equal(next)
 }
 
-func runLuaScript(name, code string) (string, error) {
+func runLuaScript(name, code string, params ...string) (string, error) {
 	L := lua.NewState()
 	defer L.Close()
 
 	luaJson.Preload(L)
 	L.PreloadModule("http", luaHttp.NewHttpModule(httpClient).Loader)
 
-	L.SetGlobal("script_name", lua.LString(name))
+	if len(params) > 0 {
+		L.SetGlobal("params", lua.LString(params[0]))
+	}
 
+	L.SetGlobal("script_name", lua.LString(name))
 	L.SetGlobal("kv_set", L.NewFunction(kvSet))
 	L.SetGlobal("kv_get", L.NewFunction(kvGet))
 
@@ -295,4 +323,16 @@ func updateScript(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Script updated successfully"})
+}
+
+func deleteScript(c *gin.Context) {
+	name := c.Param("name")
+
+	err := db.Where("name = ? OR alias = ?", name, name).Delete(&Script{}).Error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Script deleted successfully"})
 }
